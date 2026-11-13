@@ -21,15 +21,32 @@ import {
 } from "@/components/UI/table";
 import type { SalesDetail, Product } from "@/lib/data/types";
 
+// Key unik untuk menyimpan draft transaksi penjualan di browser
+const DRAFT_SALES_KEY = "dcelup_sales_draft";
+
 interface SalesFormProps {
   products: Product[];
   onSave: (total: number, detail: SalesDetail[]) => void;
 }
 
 export function SalesForm({ products, onSave }: SalesFormProps) {
-  const [lines, setLines] = useState<{ productId: string; qty: number }[]>([]);
+  // 1. Inisialisasi state lines dari localStorage agar tidak tereset saat refresh/terkeluar HP
+  const [lines, setLines] = useState<{ productId: string; qty: number }[]>(() => {
+    try {
+      const savedDraft = localStorage.getItem(DRAFT_SALES_KEY);
+      return savedDraft ? JSON.parse(savedDraft) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [selectedProduct, setSelectedProduct] = useState("");
   const [selectedQty, setSelectedQty] = useState(1);
+
+  // 2. Simpan lines otomatis ke localStorage setiap kali ada penambahan/pengurangan item
+  useEffect(() => {
+    localStorage.setItem(DRAFT_SALES_KEY, JSON.stringify(lines));
+  }, [lines]);
 
   const activeProducts = products.filter((p) => p.is_active);
 
@@ -84,7 +101,12 @@ export function SalesForm({ products, onSave }: SalesFormProps) {
   const total = detail.reduce((sum, d) => sum + d.subtotal, 0);
 
   function handleSave() {
+    // Jalankan fungsi simpan bawaan
     onSave(total, detail);
+    
+    // 3. Bersihkan draft di localStorage & kosongkan form setelah transaksi disubmit
+    localStorage.removeItem(DRAFT_SALES_KEY);
+    setLines([]);
   }
 
   return (
